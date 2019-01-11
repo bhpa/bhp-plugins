@@ -5,12 +5,20 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("SimplePolicy.UnitTests")]
 
 namespace Bhp.Plugins
 {
     public class SimplePolicyPlugin : Plugin, ILogPlugin, IPolicyPlugin
     {
         private static readonly string log_dictionary = Path.Combine(AppContext.BaseDirectory, "Logs");
+
+        public override void Configure()
+        {
+            Settings.Load(GetConfiguration());
+        }
 
         public bool FilterForMemoryPool(Transaction tx)
         {
@@ -39,7 +47,7 @@ namespace Bhp.Plugins
         private static IEnumerable<Transaction> FilterForBlock_Policy1(IEnumerable<Transaction> transactions)
         {
             int count = 0, count_free = 0;
-            foreach (Transaction tx in transactions.OrderByDescending(p => p.NetworkFee / p.Size).ThenByDescending(p => p.NetworkFee))
+            foreach (Transaction tx in transactions.OrderByDescending(p => p.NetworkFee / p.Size).ThenByDescending(p => p.NetworkFee).ThenByDescending(p => InHighPriorityList(p)))
             {
                 if (count++ >= Settings.Default.MaxTransactionsPerBlock - 1) break;
                 if (!tx.IsLowPriority || count_free++ < Settings.Default.MaxFreeTransactionsPerBlock)
@@ -55,6 +63,7 @@ namespace Bhp.Plugins
             Transaction[] free = tx_list.Where(p => p.IsLowPriority)
                 .OrderByDescending(p => p.NetworkFee / p.Size)
                 .ThenByDescending(p => p.NetworkFee)
+                .ThenByDescending(p => InHighPriorityList(p))
                 .Take(Settings.Default.MaxFreeTransactionsPerBlock)
                 .ToArray();
 
@@ -70,24 +79,26 @@ namespace Bhp.Plugins
         void ILogPlugin.Log(string source, LogLevel level, string message)
         {
             if (source != nameof(ConsensusService)) return;
-            DateTime now = DateTime.UtcNow;
-            string line = $"[{now.TimeOfDay:hh\\:mm\\:ss\\.fff}] {message}";
+            //DateTime now = DateTime.UtcNow;
+            string line = $"[{DateTime.UtcNow.TimeOfDay:hh\\:mm\\:ss\\.fff}] {message}";
             Console.WriteLine(line);
             if (string.IsNullOrEmpty(log_dictionary)) return;
             lock (log_dictionary)
             {
                 Directory.CreateDirectory(log_dictionary);
-                string path = Path.Combine(log_dictionary, $"{now:yyyy-MM-dd}.log");
+                string path = Path.Combine(log_dictionary, $"{DateTime.UtcNow:yyyy-MM-dd}.log");
                 File.AppendAllLines(path, new[] { line });
             }
         }
 
         private bool VerifySizeLimits(Transaction tx)
         {
+            if (InHighPriorityList(tx)) return true;
+
             // Not Allow free TX bigger than MaxFreeTransactionSize
             if (tx.IsLowPriority && tx.Size > Settings.Default.MaxFreeTransactionSize) return false;
 
-            // Require proportional fee for TX bigger than MaxFreeTransactionSize 
+            // Require proportional fee for TX bigger than MaxFreeTransactionSize
             if (tx.Size > Settings.Default.MaxFreeTransactionSize)
             {
                 Fixed8 fee = Settings.Default.FeePerExtraByte * (tx.Size - Settings.Default.MaxFreeTransactionSize);
@@ -95,6 +106,9 @@ namespace Bhp.Plugins
                 if (tx.NetworkFee < fee) return false;
             }
             return true;
-        } 
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool InHighPriorityList(Transaction tx) => Settings.Default.HighPriorityTxType.Contains(tx.Type);
     }
 }
