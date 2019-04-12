@@ -50,7 +50,7 @@ namespace Bhp.Plugins
         private static IEnumerable<Transaction> FilterForBlock_Policy1(IEnumerable<Transaction> transactions)
         {
             int count = 0, count_free = 0;
-            foreach (Transaction tx in transactions.OrderByDescending(p => p.NetworkFee / p.Size).ThenByDescending(p => p.NetworkFee).ThenByDescending(p => InHighPriorityList(p)))
+            foreach (Transaction tx in transactions.OrderByDescending(p => p.NetworkFee / p.Size).ThenByDescending(p => p.NetworkFee).ThenByDescending(p => InHigherLowPriorityList(p)))
             {
                 if (count++ >= Settings.Default.MaxTransactionsPerBlock - 1) break;
                 if (!tx.IsLowPriority || count_free++ < Settings.Default.MaxFreeTransactionsPerBlock)
@@ -66,13 +66,15 @@ namespace Bhp.Plugins
             Transaction[] free = tx_list.Where(p => p.IsLowPriority)
                 .OrderByDescending(p => p.NetworkFee / p.Size)
                 .ThenByDescending(p => p.NetworkFee)
-                .ThenByDescending(p => InHighPriorityList(p))
+                .ThenByDescending(p => InHigherLowPriorityList(p))
+                .ThenBy(p => p.Hash)
                 .Take(Settings.Default.MaxFreeTransactionsPerBlock)
                 .ToArray();
 
             Transaction[] non_free = tx_list.Where(p => !p.IsLowPriority)
                 .OrderByDescending(p => p.NetworkFee / p.Size)
                 .ThenByDescending(p => p.NetworkFee)
+                .ThenBy(p => p.Hash)
                 .Take(Settings.Default.MaxTransactionsPerBlock - free.Length - 1)
                 .ToArray();
 
@@ -96,7 +98,7 @@ namespace Bhp.Plugins
 
         private bool VerifySizeLimits(Transaction tx)
         {
-            if (InHighPriorityList(tx)) return true;
+            if (InHigherLowPriorityList(tx)) return true;
 
             // Not Allow free TX bigger than MaxFreeTransactionSize
             if (tx.IsLowPriority && tx.Size > Settings.Default.MaxFreeTransactionSize) return false;
@@ -112,6 +114,6 @@ namespace Bhp.Plugins
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool InHighPriorityList(Transaction tx) => Settings.Default.HighPriorityTxType.Contains(tx.Type);
+        public static bool InHigherLowPriorityList(Transaction tx) => Settings.Default.HighPriorityTxType.Contains(tx.Type);
     }
 }
