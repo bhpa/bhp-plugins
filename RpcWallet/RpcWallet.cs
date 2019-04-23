@@ -35,8 +35,8 @@ namespace Bhp.Plugins
         {
             switch (method)
             {
-                //case "claimgas":
-                //    return ClaimGas(_params);
+                case "claimgas":
+                    return ClaimGas(_params);
                 case "dumpprivkey":
                     return DumpPrivKey(_params);
                 case "getbalance":
@@ -58,8 +58,8 @@ namespace Bhp.Plugins
                 case "sendtoaddress":
                     return SendToAddress(_params);
                 //by bhp
-                case "claimgas":
-                    return ClaimGas();
+                //case "claimgas":
+                //    return ClaimGas();
                 case "showgas":
                     return ShowGas();
                 case "getutxos":
@@ -324,6 +324,7 @@ namespace Bhp.Plugins
             return SignAndShowResult(tx, isHexString);
         }
 
+        /*
         private JObject ClaimGas()
         {
             WalletVerify();
@@ -343,6 +344,7 @@ namespace Bhp.Plugins
             }
             return json;
         }
+        */
 
         private JObject ShowGas()
         {
