@@ -68,6 +68,8 @@ namespace Bhp.Plugins
                     return SendIssueTransaction(_params);
                 case "gettransactiondata":
                     return SendToAddress(_params, true);
+                case "listsinceblock":
+                    return ListSinceBlock(_params);
                 default:
                     return null;
             }
@@ -147,7 +149,7 @@ namespace Bhp.Plugins
             WalletVerify();
             UInt160 scriptHash = _params[0].AsString().ToScriptHash();
             WalletAccount account = Wallet.GetAccount(scriptHash);
-            if(account is null)
+            if (account is null)
                 throw new RpcException(-100, "Unknown Address");
             return account?.GetKey().Export();
         }
@@ -322,6 +324,38 @@ namespace Bhp.Plugins
                 }
             }, change_address: change_address, fee: fee);
             return SignAndShowResult(tx, isHexString);
+        }
+
+        private JObject ListSinceBlock(JArray _params)
+        {
+            WalletVerify();
+            JObject json = new JObject();
+            int startBlockHeight = _params[0].AsString() != "" ? int.Parse(_params[0].AsString()) : 0;
+            int targetConfirmations = _params[1].AsString() != "" ? int.Parse(_params[1].AsString()) : 6;            
+            using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+            {
+                var trans = Wallet.GetTransactions().Select(p => snapshot.Transactions.TryGet(p)).Where(p => p.Transaction != null
+               && p.BlockIndex >= startBlockHeight).Select(p => new
+               {
+                   p.Transaction,
+                   p.BlockIndex,
+                   Time = snapshot.GetHeader(p.BlockIndex).Timestamp,
+                   BlockHash = snapshot.GetHeader(p.BlockIndex).Hash
+               }).OrderBy(p => p.Time);
+
+                json["txs"] = new JArray(
+                    trans.Select(p =>
+                    {
+                        JObject peerjson = new JObject();
+                        peerjson["txid"] = p.Transaction.Hash.ToString();
+                        peerjson["blockheight"] = p.BlockIndex;
+                        peerjson["blockhash"] = p.BlockHash.ToString();
+                        peerjson["utctime"] = p.Time;
+                        return peerjson;
+                    }));
+                json["lastblockheight"] = (Wallet.WalletHeight - targetConfirmations > 0) ? (Wallet.WalletHeight - targetConfirmations) : 0;
+            }
+            return json;
         }
 
         /*
