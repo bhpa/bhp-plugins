@@ -19,8 +19,8 @@ namespace Bhp.Plugins
     public class RpcWallet : Plugin, IRpcPlugin
     {
         private Wallet Wallet => System.RpcServer.Wallet;
-        private RpcExtension rpcExtension => System.RpcServer.rpcExtension;
-        private BhpSystem system => System.RpcServer.system;
+        private RpcExtension RpcWalletExtension => System.RpcServer.rpcExtension;
+        private BhpSystem RpcWalletBhpSystem => System.RpcServer.system;
 
         public override void Configure()
         {
@@ -384,7 +384,7 @@ namespace Bhp.Plugins
         {
             WalletVerify();
             JObject json = new JObject();
-            RpcCoins coins = new RpcCoins(Wallet, system);
+            RpcCoins coins = new RpcCoins(Wallet, RpcWalletBhpSystem);
             json["unavailable"] = coins.UnavailableBonus().ToString();
             json["available"] = coins.AvailableBonus().ToString();
             return json;
@@ -459,7 +459,7 @@ namespace Bhp.Plugins
 
         public void WalletVerify()
         {
-            if (Wallet == null || rpcExtension.walletTimeLock.IsLocked())
+            if (Wallet == null || RpcWalletExtension.walletTimeLock.IsLocked())
                 throw new RpcException(-400, "Access denied");
         }
 
