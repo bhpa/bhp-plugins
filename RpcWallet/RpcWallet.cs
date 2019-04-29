@@ -141,6 +141,8 @@ namespace Bhp.Plugins
                     }
                 };
             }
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
             return SignAndShowResult(tx);
         }
 
@@ -263,6 +265,38 @@ namespace Bhp.Plugins
                                 ScriptHash = to
                 }
             }, from: from, change_address: change_address, fee: fee);
+
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
+
+            ContractParametersContext transContext = new ContractParametersContext(tx);
+            Wallet.Sign(transContext);
+            if (!transContext.Completed)
+                return transContext.ToJson();
+            tx.Witnesses = transContext.GetWitnesses();
+            if (tx.Size > 1024)
+            {
+                Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
+                if (fee < calFee)
+                {
+                    fee = calFee;
+                    tx = Wallet.MakeTransaction(null, new[]
+                    {
+                        new TransferOutput
+                        {
+                            AssetId = assetId,
+                            Value = value,
+                            ScriptHash = to
+                        }
+                    }, from: from, change_address: change_address, fee: fee);
+
+                    if (tx == null)
+                        throw new RpcException(-300, "Insufficient funds");
+                }
+            }
+            if (fee > Settings.Default.MaxFee)
+                throw new RpcException(-301, "The necessary fee is more than the Max_fee, this transaction is failed. Please increase your Max_fee value.");
+
             return SignAndShowResult(tx);
         }
 
@@ -298,6 +332,28 @@ namespace Bhp.Plugins
                 throw new RpcException(-32602, "Invalid params");
             UInt160 change_address = _params.Count >= to_start + 3 ? _params[to_start + 2].AsString().ToScriptHash() : null;
             Transaction tx = Wallet.MakeTransaction(null, outputs, from: from, change_address: change_address, fee: fee);
+
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
+            ContractParametersContext transContext = new ContractParametersContext(tx);
+            Wallet.Sign(transContext);
+            if (!transContext.Completed)
+                return transContext.ToJson();
+            tx.Witnesses = transContext.GetWitnesses();
+            if (tx.Size > 1024)
+            {
+                Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
+                if (fee < calFee)
+                {
+                    fee = calFee;
+                    tx = Wallet.MakeTransaction(null, outputs, from: from, change_address: change_address, fee: fee);
+                    if (tx == null)
+                        throw new RpcException(-300, "Insufficient funds");
+                }
+            }
+            if (fee > Settings.Default.MaxFee)
+                throw new RpcException(-301, "The necessary fee is more than the Max_fee, this transaction is failed. Please increase your Max_fee value.");
+
             return SignAndShowResult(tx);
         }
 
@@ -323,6 +379,36 @@ namespace Bhp.Plugins
                     ScriptHash = scriptHash
                 }
             }, change_address: change_address, fee: fee);
+
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
+            ContractParametersContext transContext = new ContractParametersContext(tx);
+            Wallet.Sign(transContext);
+            if (!transContext.Completed)
+                return transContext.ToJson();
+            tx.Witnesses = transContext.GetWitnesses();
+            if (tx.Size > 1024)
+            {
+                Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
+                if (fee < calFee)
+                {
+                    fee = calFee;
+                    tx = Wallet.MakeTransaction(null, new[]
+                    {
+                        new TransferOutput
+                        {
+                            AssetId = assetId,
+                            Value = value,
+                            ScriptHash = scriptHash
+                        }
+                    }, change_address: change_address, fee: fee);
+                    if (tx == null)
+                        throw new RpcException(-300, "Insufficient funds");
+                }
+            }
+            if (fee > Settings.Default.MaxFee)
+                throw new RpcException(-301, "The necessary fee is more than the Max_fee, this transaction is failed. Please increase your Max_fee value.");
+
             return SignAndShowResult(tx, isHexString);
         }
 
@@ -454,6 +540,9 @@ namespace Bhp.Plugins
                 Version = 1,
                 Outputs = outputs
             }, fee: Fixed8.One);
+
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
             return SignAndShowResult(tx);
         }
 
@@ -465,8 +554,6 @@ namespace Bhp.Plugins
 
         public JObject SignAndShowResult(Transaction tx, bool isHexString = false)
         {
-            if (tx == null)
-                throw new RpcException(-300, "Insufficient funds");
             ContractParametersContext context = new ContractParametersContext(tx);
             Wallet.Sign(context);
             if (context.Completed)
