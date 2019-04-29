@@ -274,6 +274,10 @@ namespace Bhp.Plugins
             if (!transContext.Completed)
                 return transContext.ToJson();
             tx.Witnesses = transContext.GetWitnesses();
+
+            if (tx.Size > Transaction.MaxTransactionSize)
+                throw new RpcException(-301, "The size of the free transaction must be less than 102400 bytes");
+
             if (tx.Size > 102400)
             {
                 Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
@@ -340,6 +344,10 @@ namespace Bhp.Plugins
             if (!transContext.Completed)
                 return transContext.ToJson();
             tx.Witnesses = transContext.GetWitnesses();
+
+            if (tx.Size > Transaction.MaxTransactionSize)
+                throw new RpcException(-301, "The size of the free transaction must be less than 102400 bytes");
+
             if (tx.Size > 102400)
             {
                 Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
@@ -387,6 +395,10 @@ namespace Bhp.Plugins
             if (!transContext.Completed)
                 return transContext.ToJson();
             tx.Witnesses = transContext.GetWitnesses();
+
+            if (tx.Size > Transaction.MaxTransactionSize)
+                throw new RpcException(-301, "The size of the free transaction must be less than 102400 bytes");
+
             if (tx.Size > 102400)
             {
                 Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
