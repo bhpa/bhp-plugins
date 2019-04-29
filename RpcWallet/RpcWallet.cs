@@ -274,7 +274,7 @@ namespace Bhp.Plugins
             if (!transContext.Completed)
                 return transContext.ToJson();
             tx.Witnesses = transContext.GetWitnesses();
-            if (tx.Size > 1024)
+            if (tx.Size > 102400)
             {
                 Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
                 if (fee < calFee)
@@ -340,7 +340,7 @@ namespace Bhp.Plugins
             if (!transContext.Completed)
                 return transContext.ToJson();
             tx.Witnesses = transContext.GetWitnesses();
-            if (tx.Size > 1024)
+            if (tx.Size > 102400)
             {
                 Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
                 if (fee < calFee)
@@ -387,7 +387,7 @@ namespace Bhp.Plugins
             if (!transContext.Completed)
                 return transContext.ToJson();
             tx.Witnesses = transContext.GetWitnesses();
-            if (tx.Size > 1024)
+            if (tx.Size > 102400)
             {
                 Fixed8 calFee = Fixed8.FromDecimal(tx.Size * 0.00001m + 0.001m);
                 if (fee < calFee)
