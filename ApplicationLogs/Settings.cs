@@ -11,7 +11,7 @@ namespace Bhp.Plugins
 
         private Settings(IConfigurationSection section)
         {
-            this.Path = string.Format(section.GetSection("Path").Value, Message.Magic.ToString("X8"));
+            this.Path = string.Format(section.GetSection("Path").Value, ProtocolSettings.Default.Magic.ToString("X8"));
         }
 
         public static void Load(IConfigurationSection section)
