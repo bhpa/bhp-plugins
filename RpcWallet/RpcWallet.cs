@@ -15,6 +15,7 @@ using System.Linq;
 using Bhp.BhpExtensions.RPC;
 using Bhp.BhpExtensions.Fees;
 using Bhp.VM;
+using System;
 
 namespace Bhp.Plugins
 {
@@ -434,32 +435,44 @@ namespace Bhp.Plugins
         {
             WalletVerify();
             JObject json = new JObject();
-            int startBlockHeight = _params[0].AsString() != "" ? int.Parse(_params[0].AsString()) : 0;
-            int targetConfirmations = _params[1].AsString() != "" ? int.Parse(_params[1].AsString()) : 6;
-            using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+            try
             {
-                var trans = Wallet.GetTransactions().Select(p => snapshot.Transactions.TryGet(p)).Where(p => p.Transaction != null
-               && p.BlockIndex >= startBlockHeight).Select(p => new
-               {
-                   p.Transaction,
-                   p.BlockIndex,
-                   Time = snapshot.GetHeader(p.BlockIndex).Timestamp,
-                   BlockHash = snapshot.GetHeader(p.BlockIndex).Hash
-               }).OrderBy(p => p.Time);
+                uint walletHeight = Wallet.WalletHeight;
+                var Transactions = Wallet.GetTransactions();
+                int startBlockHeight = _params[0].AsString() != "" ? int.Parse(_params[0].AsString()) : 0;
+                int targetConfirmations = _params[1].AsString() != "" ? int.Parse(_params[1].AsString()) : 6;
+                using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+                {
+                    var trans = Transactions.Select(p => snapshot.Transactions.TryGet(p)).Where(p => p.Transaction != null
+                   && p.BlockIndex >= startBlockHeight).Select(p => new
+                   {
+                       p.Transaction,
+                       p.BlockIndex,
+                       Time = snapshot.GetHeader(p.BlockIndex).Timestamp,
+                       BlockHash = snapshot.GetHeader(p.BlockIndex).Hash
+                   }).OrderBy(p => p.Time);
 
-                json["txs"] = new JArray(
-                    trans.Select(p =>
-                    {
-                        JObject peerjson = new JObject();
-                        peerjson["txid"] = p.Transaction.Hash.ToString();
-                        peerjson["blockheight"] = p.BlockIndex;
-                        peerjson["blockhash"] = p.BlockHash.ToString();
-                        peerjson["utctime"] = p.Time;
-                        return peerjson;
-                    }));
-                json["lastblockheight"] = (Wallet.WalletHeight - targetConfirmations > 0) ? (Wallet.WalletHeight - targetConfirmations) : 0;
+                    json["txs"] = new JArray(
+                        trans.Select(p =>
+                        {
+                            JObject peerjson = new JObject();
+                            peerjson["txid"] = p.Transaction.Hash.ToString();
+                            peerjson["blockheight"] = p.BlockIndex;
+                            peerjson["blockhash"] = p.BlockHash.ToString();
+                            peerjson["utctime"] = p.Time;
+                            return peerjson;
+                        }));
+                    json["lastblockheight"] = (walletHeight - targetConfirmations > 0) ? (walletHeight - targetConfirmations) : 0;
+                    return json;
+                }
             }
-            return json;
+            catch (Exception ex)
+            {
+                int startBlockHeight = _params[0].AsString() != "" ? int.Parse(_params[0].AsString()) : 0;
+                json["txs"] = new JArray();
+                json["lastblockheight"] = startBlockHeight;
+                return json;
+            }
         }
 
         /*
