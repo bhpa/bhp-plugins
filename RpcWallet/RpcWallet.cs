@@ -13,6 +13,8 @@ using Bhp.Wallets.BRC6;
 using System.Collections.Generic;
 using System.Linq;
 using Bhp.BhpExtensions.RPC;
+using Bhp.BhpExtensions.Fees;
+using Bhp.VM;
 
 namespace Bhp.Plugins
 {
@@ -70,6 +72,10 @@ namespace Bhp.Plugins
                     return SendToAddress(_params, true);
                 case "listsinceblock":
                     return ListSinceBlock(_params);
+                case "sendtocold":
+                    return SendToCold(_params);
+                case "sendtoaddressorder":
+                    return SendToAddressOrder(_params);
                 default:
                     return null;
             }
@@ -429,7 +435,7 @@ namespace Bhp.Plugins
             WalletVerify();
             JObject json = new JObject();
             int startBlockHeight = _params[0].AsString() != "" ? int.Parse(_params[0].AsString()) : 0;
-            int targetConfirmations = _params[1].AsString() != "" ? int.Parse(_params[1].AsString()) : 6;            
+            int targetConfirmations = _params[1].AsString() != "" ? int.Parse(_params[1].AsString()) : 6;
             using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
             {
                 var trans = Wallet.GetTransactions().Select(p => snapshot.Transactions.TryGet(p)).Where(p => p.Transaction != null
@@ -580,6 +586,137 @@ namespace Bhp.Plugins
 
                 if (isHexString)
                     return Bhp.IO.Helper.ToArray(tx).ToHexString();
+                return tx.ToJson();
+            }
+            else
+            {
+                return context.ToJson();
+            }
+        }
+
+
+        private JObject SendToCold(JArray _params)
+        {
+            WalletVerify();
+            UInt160 scriptHash = _params[0].AsString().ToScriptHash();
+            IEnumerable<Coin> allCoins = Wallet.FindUnspentCoins();
+            Coin[] coins = TransactionContract.FindUnspentCoins(allCoins);
+            Transaction tx = MakeToColdTransaction(coins, scriptHash);
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
+            ContractParametersContext context = new ContractParametersContext(tx);
+            Wallet.Sign(context);
+            if (context.Completed)
+            {
+                tx.Witnesses = context.GetWitnesses();
+                if (tx.Size > Transaction.MaxTransactionSize)
+                    throw new RpcException(-301, "The size of the free transaction must be less than 102400 bytes");
+                Wallet.ApplyTransaction(tx);
+                System.LocalNode.Tell(new LocalNode.Relay { Inventory = tx });
+                return tx.ToJson();
+            }
+            else
+            {
+                return context.ToJson();
+            }
+        }
+
+        private Transaction MakeToColdTransaction(Coin[] coins, UInt160 outAddress)
+        {
+            int MaxInputCount = 50;
+            Transaction tx = new ContractTransaction();
+            tx.Attributes = new TransactionAttribute[0];
+            tx.Witnesses = new Witness[0];
+
+            List<CoinReference> inputs = new List<CoinReference>();
+            List<TransactionOutput> outputs = new List<TransactionOutput>();
+
+            Fixed8 sum = Fixed8.Zero;
+            if (coins.Length < 50)
+            {
+                MaxInputCount = coins.Length;
+            }
+            for (int j = 0; j < MaxInputCount; j++)
+            {
+                sum += coins[j].Output.Value;
+                inputs.Add(new CoinReference
+                {
+                    PrevHash = coins[j].Reference.PrevHash,
+                    PrevIndex = coins[j].Reference.PrevIndex
+                });
+            }
+            tx.Inputs = inputs.ToArray();
+            outputs.Add(new TransactionOutput
+            {
+                AssetId = Blockchain.GoverningToken.Hash,
+                ScriptHash = outAddress,
+                Value = sum
+
+            });
+            if (tx.SystemFee > 0)
+            {
+                outputs.Add(new TransactionOutput
+                {
+                    AssetId = Blockchain.UtilityToken.Hash,
+                    Value = Fixed8.Parse(tx.SystemFee.ToString())
+                });
+            }
+            tx.Outputs = outputs.ToArray();
+            Fixed8 transfee = BhpTxFee.EstimateTxFee(tx, Blockchain.GoverningToken.Hash);
+            if (tx.Outputs[0].Value <= transfee)
+            {
+                return null;
+            }
+            tx.Outputs[0].Value -= transfee;
+            return tx;
+        }
+
+        private JObject SendToAddressOrder(JArray _params)
+        {
+            WalletVerify();
+            string remarks = _params[0].AsString();
+            List<TransactionAttribute> attributes = new List<TransactionAttribute>();
+            using (ScriptBuilder sb = new ScriptBuilder())
+            {
+                sb.EmitPush(remarks);
+                attributes.Add(new TransactionAttribute
+                {
+                    Usage = TransactionAttributeUsage.Description,
+                    Data = sb.ToArray()
+                });
+            }
+            UIntBase assetId = UIntBase.Parse(_params[1].AsString());
+            AssetDescriptor descriptor = new AssetDescriptor(assetId);
+            UInt160 scriptHash = _params[2].AsString().ToScriptHash();
+            BigDecimal value = BigDecimal.Parse(_params[3].AsString(), descriptor.Decimals);
+            if (value.Sign <= 0)
+                throw new RpcException(-32602, "Invalid params");
+            Fixed8 fee = _params.Count >= 5 ? Fixed8.Parse(_params[4].AsString()) : Fixed8.Zero;
+            if (fee < Fixed8.Zero)
+                throw new RpcException(-32602, "Invalid params");
+            UInt160 change_address = _params.Count >= 6 ? _params[5].AsString().ToScriptHash() : null;
+            Transaction tx = Wallet.MakeTransaction(attributes, new[]
+            {
+                new TransferOutput
+                {
+                    AssetId = assetId,
+                    Value = value,
+                    ScriptHash = scriptHash
+                }
+            }, change_address: change_address, fee: fee);
+            if (tx == null)
+                throw new RpcException(-300, "Insufficient funds");
+            ContractParametersContext context = new ContractParametersContext(tx);
+            Wallet.Sign(context);
+            if (context.Completed)
+            {
+                tx.Witnesses = context.GetWitnesses();
+
+                if (tx.Size > Transaction.MaxTransactionSize)
+                    throw new RpcException(-301, "The size of the free transaction must be less than 102400 bytes");
+
+                Wallet.ApplyTransaction(tx);
+                System.LocalNode.Tell(new LocalNode.Relay { Inventory = tx });
                 return tx.ToJson();
             }
             else
