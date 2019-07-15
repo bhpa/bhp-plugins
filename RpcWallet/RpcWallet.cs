@@ -77,9 +77,28 @@ namespace Bhp.Plugins
                     return SendToCold(_params);
                 case "sendtoaddressorder":
                     return SendToAddressOrder(_params);
+                case "exportaddresswif":
+                    return ExportAddressWif(_params);
                 default:
                     return null;
             }
+        }
+
+        private JObject ExportAddressWif(JArray _params)
+        {
+            WalletVerify();
+            UInt160 scriptHash = _params[0].AsString().ToScriptHash();
+            WalletAccount account = Wallet.GetAccount(scriptHash);
+            if (account == null)
+            {
+                throw new RpcException(-2146232969, $"The given key '{scriptHash}' was not present in the dictionary.");
+            }
+            JObject json = new JObject();
+            json["wif"] = account.GetKey().Export();
+            json["prikey"] = account.GetKey().PrivateKey.ToHexString();
+            json["pubkey"] = account.GetKey().PublicKey.EncodePoint(true).ToHexString();
+            json["address"] = account.Address;
+            return json;
         }
 
         public void PostProcess(HttpContext context, string method, JArray _params, JObject result)
