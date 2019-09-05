@@ -282,7 +282,22 @@ namespace Bhp.Plugins
             if (fee < Fixed8.Zero)
                 throw new RpcException(-32602, "Invalid params");
             UInt160 change_address = _params.Count >= 6 ? _params[5].AsString().ToScriptHash() : null;
-            Transaction tx = Wallet.MakeTransaction(null, new[]
+            string remark = _params.Count >= 7 ? _params[6].AsString() : string.Empty;
+            List<TransactionAttribute> attributes = null;
+            if (!string.IsNullOrEmpty(remark))
+            {
+                attributes = new List<TransactionAttribute>();
+                using (ScriptBuilder sb = new ScriptBuilder())
+                {
+                    sb.EmitPush(remark);
+                    attributes.Add(new TransactionAttribute
+                    {
+                        Usage = TransactionAttributeUsage.Description,
+                        Data = sb.ToArray()
+                    });
+                }
+            }
+            Transaction tx = Wallet.MakeTransaction(attributes, new[]
             {
                 new TransferOutput
                 {
