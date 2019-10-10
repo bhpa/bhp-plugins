@@ -299,15 +299,17 @@ namespace Bhp.Plugins
                     });
                 }
             }
-            Transaction tx = Wallet.MakeTransaction(attributes, new[]
+
+            Transaction tx = new Transaction();
+            tx.Attributes = attributes.ToArray();
+            tx.Outputs = new TransactionOutput[] { new TransactionOutput
             {
-                new TransferOutput
-                {
-                    AssetId = assetId,
-                                Value = value,
-                                ScriptHash = to
-                }
-            },  from: from, fee_address: fee_address,change_address: change_address, fee: fee);
+                AssetId = (UInt256)assetId,
+                Value = value.ToFixed8(),
+                ScriptHash = to
+            }};
+
+            Wallet.MakeTransaction(tx, from: from, fee_address: fee_address, change_address: change_address, fee: fee);
 
             if (tx == null)
                 throw new RpcException(-300, "Insufficient funds");
@@ -327,15 +329,14 @@ namespace Bhp.Plugins
                 if (fee < calFee)
                 {
                     fee = calFee;
-                    tx = Wallet.MakeTransaction(null, new[]
+                    tx.Outputs = new TransactionOutput[] { new TransactionOutput
                     {
-                        new TransferOutput
-                        {
-                            AssetId = assetId,
-                            Value = value,
-                            ScriptHash = to
-                        }
-                    }, from: from, change_address: change_address, fee: fee);
+                        AssetId = (UInt256)assetId,
+                        Value = value.ToFixed8(),
+                        ScriptHash = to
+                    }};
+
+                    Wallet.MakeTransaction(tx, from: from, change_address: change_address, fee: fee);
 
                     if (tx == null)
                         throw new RpcException(-300, "Insufficient funds");
@@ -360,21 +361,22 @@ namespace Bhp.Plugins
             JArray to = (JArray)_params[to_start + 0];
             if (to.Count == 0)
                 throw new RpcException(-32602, "Invalid params");
-            TransferOutput[] outputs = new TransferOutput[to.Count];
+            TransactionOutput[] outputs = new TransactionOutput[to.Count];
             bool hasBhp = false;
             for (int i = 0; i < to.Count; i++)
             {
                 UIntBase asset_id = UIntBase.Parse(to[i]["asset"].AsString());
                 if (!hasBhp && asset_id.Equals(Blockchain.GoverningToken.Hash)) hasBhp = true;
                 AssetDescriptor descriptor = new AssetDescriptor(asset_id);
-                outputs[i] = new TransferOutput
+                BigDecimal value = BigDecimal.Parse(to[i]["value"].AsString(), descriptor.Decimals);
+                if (value.Sign <= 0)
+                    throw new RpcException(-32602, "Invalid params");
+                outputs[i] = new TransactionOutput
                 {
-                    AssetId = asset_id,
-                    Value = BigDecimal.Parse(to[i]["value"].AsString(), descriptor.Decimals),
+                    AssetId = (UInt256)asset_id,
+                    Value = value.ToFixed8(),
                     ScriptHash = to[i]["address"].AsString().ToScriptHash()
                 };
-                if (outputs[i].Value.Sign <= 0)
-                    throw new RpcException(-32602, "Invalid params");
             }
             Fixed8 fee = _params.Count >= to_start + 2 ? Fixed8.Parse(_params[to_start + 1].AsString()) : Fixed8.Zero;
             if (fee < Fixed8.Zero)
@@ -382,7 +384,9 @@ namespace Bhp.Plugins
             UInt160 change_address = _params.Count >= to_start + 3 ? _params[to_start + 2].AsString().ToScriptHash() : null;
             UInt160 fee_address = _params.Count >= 4 ? _params[3].AsString().ToScriptHash() : null;
             if (hasBhp) fee_address = null;
-            Transaction tx = Wallet.MakeTransaction(null, outputs, from: from, fee_address: fee_address, change_address: change_address, fee: fee);
+            Transaction tx = new Transaction();
+            tx.Outputs = outputs;
+            Wallet.MakeTransaction(tx, from: from, fee_address: fee_address, change_address: change_address, fee: fee);
 
             if (tx == null)
                 throw new RpcException(-300, "Insufficient funds");
@@ -401,7 +405,8 @@ namespace Bhp.Plugins
                 if (fee < calFee)
                 {
                     fee = calFee;
-                    tx = Wallet.MakeTransaction(null, outputs, from: from, change_address: change_address, fee: fee);
+                    tx.Outputs = outputs;
+                    Wallet.MakeTransaction(tx, from: from, change_address: change_address, fee: fee);
                     if (tx == null)
                         throw new RpcException(-300, "Insufficient funds");
                 }
@@ -427,15 +432,16 @@ namespace Bhp.Plugins
             UInt160 change_address = _params.Count >= 5 ? _params[4].AsString().ToScriptHash() : null;
             UInt160 fee_address = _params.Count >= 6 ? _params[5].AsString().ToScriptHash() : null;
             if (assetId.Equals(Blockchain.GoverningToken.Hash)) fee_address = null;
-            Transaction tx = Wallet.MakeTransaction(null, new[]
-            {
-                new TransferOutput
+            Transaction tx = new Transaction();
+            tx.Outputs = new TransactionOutput[] {
+                new TransactionOutput
                 {
-                    AssetId = assetId,
-                    Value = value,
+                    AssetId = (UInt256)assetId,
+                    Value = value.ToFixed8(),
                     ScriptHash = scriptHash
                 }
-            }, fee_address: fee_address, change_address: change_address, fee: fee);
+            };
+            Wallet.MakeTransaction(tx, fee_address: fee_address, change_address: change_address, fee: fee);
 
             if (tx == null)
                 throw new RpcException(-300, "Insufficient funds");
@@ -454,15 +460,15 @@ namespace Bhp.Plugins
                 if (fee < calFee)
                 {
                     fee = calFee;
-                    tx = Wallet.MakeTransaction(null, new[]
-                    {
-                        new TransferOutput
+                    tx.Outputs = new TransactionOutput[]{
+                        new TransactionOutput
                         {
-                            AssetId = assetId,
-                            Value = value,
+                            AssetId = (UInt256)assetId,
+                            Value = value.ToFixed8(),
                             ScriptHash = scriptHash
                         }
-                    }, change_address: change_address, fee: fee);
+                    };
+                    Wallet.MakeTransaction(tx, change_address: change_address, fee: fee);
                     if (tx == null)
                         throw new RpcException(-300, "Insufficient funds");
                 }
@@ -776,15 +782,17 @@ namespace Bhp.Plugins
             UInt160 change_address = _params.Count >= 6 ? _params[5].AsString().ToScriptHash() : null;
             UInt160 fee_address = _params.Count >= 7 ? _params[6].AsString().ToScriptHash() : null;
             if (assetId.Equals(Blockchain.GoverningToken.Hash)) fee_address = null;
-            Transaction tx = Wallet.MakeTransaction(attributes, new[]
+            Transaction tx = new Transaction();
+            tx.Outputs = new TransactionOutput[]
             {
-                new TransferOutput
+                new TransactionOutput
                 {
-                    AssetId = assetId,
-                    Value = value,
+                    AssetId = (UInt256)assetId,
+                    Value = value.ToFixed8(),
                     ScriptHash = scriptHash
                 }
-            }, fee_address: fee_address, change_address: change_address, fee: fee);
+            };
+            Wallet.MakeTransaction(tx, fee_address: fee_address, change_address: change_address, fee: fee);
             if (tx == null)
                 throw new RpcException(-300, "Insufficient funds");
             ContractParametersContext context = new ContractParametersContext(tx);
