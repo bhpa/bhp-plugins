@@ -281,9 +281,17 @@ namespace Bhp.Plugins
             Fixed8 fee = _params.Count >= 5 ? Fixed8.Parse(_params[4].AsString()) : Fixed8.Zero;
             if (fee < Fixed8.Zero)
                 throw new RpcException(-32602, "Invalid params");
-            UInt160 change_address = _params.Count >= 6 ? _params[5].AsString().ToScriptHash() : null;
+            UInt160 change_address = null;
+            if (_params.Count >= 6 && !string.IsNullOrEmpty(_params[5].AsString()))
+            {
+                change_address = _params[5].AsString().ToScriptHash();
+            }
             string remark = _params.Count >= 7 ? _params[6].AsString() : string.Empty;
-            UInt160 fee_address = _params.Count >= 8 ? _params[7].AsString().ToScriptHash() : null;
+            UInt160 fee_address = null;
+            if (_params.Count >= 8 && !string.IsNullOrEmpty(_params[7].AsString()))
+            {
+                fee_address = _params[7].AsString().ToScriptHash();
+            }
             if (fee_address != null && fee_address.Equals(from) && assetId.Equals(Blockchain.GoverningToken.Hash)) fee_address = null;
             List<TransactionAttribute> attributes = null;
             if (!string.IsNullOrEmpty(remark))
@@ -429,8 +437,16 @@ namespace Bhp.Plugins
             Fixed8 fee = _params.Count >= 4 ? Fixed8.Parse(_params[3].AsString()) : Fixed8.Zero;
             if (fee < Fixed8.Zero)
                 throw new RpcException(-32602, "Invalid params");
-            UInt160 change_address = _params.Count >= 5 ? _params[4].AsString().ToScriptHash() : null;
-            UInt160 fee_address = _params.Count >= 6 ? _params[5].AsString().ToScriptHash() : null;
+            UInt160 change_address = null;
+            if (_params.Count >= 5 && !string.IsNullOrEmpty(_params[4].AsString()))
+            {
+                change_address = _params[4].AsString().ToScriptHash();
+            }           
+            UInt160 fee_address = null;
+            if (_params.Count >= 6 && !string.IsNullOrEmpty(_params[5].AsString()))
+            {
+                fee_address = _params[5].AsString().ToScriptHash();
+            }
             if (assetId.Equals(Blockchain.GoverningToken.Hash)) fee_address = null;
             Transaction tx = new Transaction();
             tx.Outputs = new TransactionOutput[] {
