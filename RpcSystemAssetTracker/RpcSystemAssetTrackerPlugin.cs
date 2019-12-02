@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Bhp.Ledger;
 using Bhp.Persistence;
-using Snapshot = Bhp.Persistence.Snapshot;
+using StoreView = Bhp.Persistence.StoreView;
 
 namespace Bhp.Plugins
 {
@@ -62,7 +62,7 @@ namespace Bhp.Plugins
                 _writeBatch, SystemAssetSpentUnclaimedCoinsPrefix);
         }
 
-        private bool ProcessBlock(Snapshot snapshot, Block block)
+        private bool ProcessBlock(StoreView snapshot, Block block)
         {
             if (block.Transactions.Length <= 1)
             {
@@ -150,7 +150,7 @@ namespace Bhp.Plugins
         }
 
 
-        private void ProcessSkippedBlocks(Snapshot snapshot)
+        private void ProcessSkippedBlocks(StoreView snapshot)
         {
             for (uint blockIndex = _lastPersistedBlock + 1; blockIndex < snapshot.PersistingBlock.Index; blockIndex++)
             {
@@ -166,7 +166,7 @@ namespace Bhp.Plugins
             }
         }
 
-        public void OnPersist(Snapshot snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
+        public void OnPersist(StoreView snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
         {
             if (snapshot.PersistingBlock.Index > _lastPersistedBlock + 1)
                 ProcessSkippedBlocks(snapshot);
@@ -174,7 +174,7 @@ namespace Bhp.Plugins
             _shouldPersistBlock = ProcessBlock(snapshot, snapshot.PersistingBlock);
         }
 
-        public void OnCommit(Snapshot snapshot)
+        public void OnCommit(StoreView snapshot)
         {
             if (!_shouldPersistBlock) return;
             _userUnspentCoins.Commit();
@@ -203,7 +203,7 @@ namespace Bhp.Plugins
             return blocks.TryGet(Blockchain.Singleton.GetBlockHash(height)).SystemFeeAmount;
         }
 
-        private void CalculateClaimable(Snapshot snapshot, Fixed8 value, uint startHeight, uint endHeight, out Fixed8 generated, out Fixed8 sysFee)
+        private void CalculateClaimable(StoreView snapshot, Fixed8 value, uint startHeight, uint endHeight, out Fixed8 generated, out Fixed8 sysFee)
         {
             uint amount = 0;
             uint ustart = startHeight / Blockchain.DecrementInterval;
@@ -238,7 +238,7 @@ namespace Bhp.Plugins
         }
 
         private bool AddClaims(JArray claimableOutput, ref Fixed8 runningTotal, int maxClaims,
-            Snapshot snapshot, DataCache<UInt256, SpentCoinState> storeSpentCoins,
+            StoreView snapshot, DataCache<UInt256, SpentCoinState> storeSpentCoins,
             KeyValuePair<UserSystemAssetCoinOutputsKey, UserSystemAssetCoinOutputs> claimableInTx)
         {
             foreach (var claimTransaction in claimableInTx.Value.AmountByTxIndex)
@@ -280,7 +280,7 @@ namespace Bhp.Plugins
             json["address"] = scriptHash.ToAddress();
 
             Fixed8 totalUnclaimed = Fixed8.Zero;
-            using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+            using (StoreView snapshot = Blockchain.Singleton.GetSnapshot())
             {
                 var storeSpentCoins = snapshot.SpentCoins;
                 byte[] prefix = new [] { (byte) 1 }.Concat(scriptHash.ToArray()).ToArray();
@@ -304,7 +304,7 @@ namespace Bhp.Plugins
                 _db, null, null, SystemAssetSpentUnclaimedCoinsPrefix);
             var unspentsCache = new DbCache<UserSystemAssetCoinOutputsKey, UserSystemAssetCoinOutputs>(
                 _db, null, null, SystemAssetUnspentCoinsPrefix);
-            using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+            using (StoreView snapshot = Blockchain.Singleton.GetSnapshot())
             {
                 var storeSpentCoins = snapshot.SpentCoins;
                 byte[] prefix = new [] { (byte) 1 }.Concat(scriptHash.ToArray()).ToArray();
