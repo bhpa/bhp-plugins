@@ -73,13 +73,13 @@ namespace Bhp.Plugins
             return true;
         }
 
-        public void OnPersist(Snapshot snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
+        public void OnPersist(StoreView snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
         {
             if (Settings.Default.PersistAction.HasFlag(PersistActions.StorageChanges))
                 OnPersistStorage(snapshot);
         }
 
-        private void OnPersistStorage(Snapshot snapshot)
+        private void OnPersistStorage(StoreView snapshot)
         {
             uint blockIndex = snapshot.Height;
             if (blockIndex >= Settings.Default.HeightToBegin)
@@ -120,13 +120,13 @@ namespace Bhp.Plugins
             }
         }
 
-        public void OnCommit(Snapshot snapshot)
+        public void OnCommit(StoreView snapshot)
         {
             if (Settings.Default.PersistAction.HasFlag(PersistActions.StorageChanges))
                 OnCommitStorage(snapshot);
         }
 
-        public void OnCommitStorage(Snapshot snapshot)
+        public void OnCommitStorage(StoreView snapshot)
         {
             uint blockIndex = snapshot.Height;
             if (bs_cache.Count > 0)

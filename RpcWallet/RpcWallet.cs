@@ -149,7 +149,7 @@ namespace Bhp.Plugins
             if (claims.Length == 0)
                 throw new RpcException(-300, "No gas to claim");
             ClaimTransaction tx;
-            using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+            using (StoreView snapshot = Blockchain.Singleton.GetSnapshot())
             {
                 tx = new ClaimTransaction
                 {
@@ -212,7 +212,7 @@ namespace Bhp.Plugins
         private JObject GetUnclaimedGas()
         {
             WalletVerify();
-            using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+            using (StoreView snapshot = Blockchain.Singleton.GetSnapshot())
             {
                 uint height = snapshot.Height + 1;
                 Fixed8 unavailable;
@@ -505,7 +505,7 @@ namespace Bhp.Plugins
                 var Transactions = Wallet.GetTransactions();
                 int startBlockHeight = _params[0].AsString() != "" ? int.Parse(_params[0].AsString()) : 0;
                 int targetConfirmations = _params[1].AsString() != "" ? int.Parse(_params[1].AsString()) : 6;
-                using (Snapshot snapshot = Blockchain.Singleton.GetSnapshot())
+                using (StoreView snapshot = Blockchain.Singleton.GetSnapshot())
                 {
                     var trans = Transactions.Select(p => snapshot.Transactions.TryGet(p)).Where(p => p.Transaction != null
                    && p.BlockIndex >= startBlockHeight).Select(p => new

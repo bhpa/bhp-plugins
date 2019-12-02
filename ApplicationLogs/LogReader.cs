@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Snapshot = Bhp.Persistence.Snapshot;
+using StoreView = Bhp.Persistence.StoreView;
 
 namespace Bhp.Plugins
 {
@@ -45,7 +45,7 @@ namespace Bhp.Plugins
         {
         }
 
-        public void OnPersist(Snapshot snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
+        public void OnPersist(StoreView snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
         {
             WriteBatch writeBatch = new WriteBatch();
 
@@ -83,7 +83,7 @@ namespace Bhp.Plugins
             db.Write(WriteOptions.Default, writeBatch);
         }
 
-        public void OnCommit(Snapshot snapshot)
+        public void OnCommit(StoreView snapshot)
         {
         }
 
