@@ -8,7 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using StoreView = Bhp.Persistence.StoreView;
+using Snapshot = Bhp.Persistence.Snapshot;
 
 namespace Bhp.Plugins
 {
@@ -45,45 +45,51 @@ namespace Bhp.Plugins
         {
         }
 
-        public void OnPersist(StoreView snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
+        public void OnPersist(Snapshot snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
         {
             WriteBatch writeBatch = new WriteBatch();
 
             foreach (var appExec in applicationExecutedList)
             {
                 JObject json = new JObject();
-                json["txid"] = appExec.Transaction?.Hash.ToString();
-                json["trigger"] = appExec.Trigger;
-                json["vmstate"] = appExec.VMState;
-                json["gas_consumed"] = appExec.GasConsumed.ToString();
-                try
+                json["txid"] = appExec.Transaction.Hash.ToString();
+                json["executions"] = appExec.ExecutionResults.Select(p =>
                 {
-                    json["stack"] = appExec.Stack.Select(q => q.ToParameter().ToJson()).ToArray();
-                }
-                catch (InvalidOperationException)
-                {
-                    json["stack"] = "error: recursive reference";
-                }
-                json["notifications"] = appExec.Notifications.Select(q =>
-                {
-                    JObject notification = new JObject();
-                    notification["contract"] = q.ScriptHash.ToString();
+                    JObject execution = new JObject();
+                    execution["trigger"] = p.Trigger;
+                    execution["contract"] = p.ScriptHash.ToString();
+                    execution["vmstate"] = p.VMState;
+                    execution["gas_consumed"] = p.GasConsumed.ToString();
                     try
                     {
-                        notification["state"] = q.State.ToParameter().ToJson();
+                        execution["stack"] = p.Stack.Select(q => q.ToParameter().ToJson()).ToArray();
                     }
                     catch (InvalidOperationException)
                     {
-                        notification["state"] = "error: recursive reference";
+                        execution["stack"] = "error: recursive reference";
                     }
-                    return notification;
+                    execution["notifications"] = p.Notifications.Select(q =>
+                    {
+                        JObject notification = new JObject();
+                        notification["contract"] = q.ScriptHash.ToString();
+                        try
+                        {
+                            notification["state"] = q.State.ToParameter().ToJson();
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            notification["state"] = "error: recursive reference";
+                        }
+                        return notification;
+                    }).ToArray();
+                    return execution;
                 }).ToArray();
-                writeBatch.Put((appExec.Transaction?.Hash ?? snapshot.PersistingBlock.Hash).ToArray(), json.ToString());
+                writeBatch.Put(appExec.Transaction.Hash.ToArray(), json.ToString());
             }
             db.Write(WriteOptions.Default, writeBatch);
         }
 
-        public void OnCommit(StoreView snapshot)
+        public void OnCommit(Snapshot snapshot)
         {
         }
 

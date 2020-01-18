@@ -65,7 +65,7 @@ namespace Bhp.Plugins
 
             Transaction[] free = tx_list.Where(p => p.IsLowPriority)
                 .OrderByDescending(p => p.NetworkFee / p.Size)
-                .ThenByDescending(p => p.NetworkFee)
+                .ThenByDescending(p => p.NetworkFee)               
                 .ThenByDescending(p => InHigherLowPriorityList(p))
                 .ThenBy(p => p.Hash)
                 .Take(Settings.Default.MaxFreeTransactionsPerBlock)
