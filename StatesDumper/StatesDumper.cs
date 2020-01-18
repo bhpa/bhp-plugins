@@ -73,17 +73,21 @@ namespace Bhp.Plugins
             return true;
         }
 
-        public void OnPersist(StoreView snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
+        public void OnPersist(Snapshot snapshot, IReadOnlyList<Blockchain.ApplicationExecuted> applicationExecutedList)
         {
             if (Settings.Default.PersistAction.HasFlag(PersistActions.StorageChanges))
                 OnPersistStorage(snapshot);
         }
 
-        private void OnPersistStorage(StoreView snapshot)
+        private void OnPersistStorage(Snapshot snapshot)
         {
             uint blockIndex = snapshot.Height;
             if (blockIndex >= Settings.Default.HeightToBegin)
             {
+                string dirPath = "./Storage";
+                Directory.CreateDirectory(dirPath);
+                string path = $"{HandlePaths(dirPath, blockIndex)}/dump-block-{blockIndex.ToString()}.json";
+
                 JArray array = new JArray();
 
                 foreach (DataCache<StorageKey, StorageItem>.Trackable trackable in snapshot.Storages.GetChangeSet())
@@ -117,21 +121,27 @@ namespace Bhp.Plugins
                 bs_item["size"] = array.Count;
                 bs_item["storage"] = array;
                 bs_cache.Add(bs_item);
+
+                if ((blockIndex % Settings.Default.BlockCacheSize == 0) || (blockIndex > Settings.Default.HeightToStartRealTimeSyncing))
+                {
+                    File.WriteAllText(path, bs_cache.ToString());
+                    bs_cache.Clear();
+                }
             }
         }
 
-        public void OnCommit(StoreView snapshot)
+        public void OnCommit(Snapshot snapshot)
         {
             if (Settings.Default.PersistAction.HasFlag(PersistActions.StorageChanges))
                 OnCommitStorage(snapshot);
         }
 
-        public void OnCommitStorage(StoreView snapshot)
+        public void OnCommitStorage(Snapshot snapshot)
         {
             uint blockIndex = snapshot.Height;
             if (bs_cache.Count > 0)
             {
-                if ((blockIndex % Settings.Default.BlockCacheSize == 0) || (Settings.Default.HeightToStartRealTimeSyncing != -1 && blockIndex >= Settings.Default.HeightToStartRealTimeSyncing))
+                if ((blockIndex % Settings.Default.BlockCacheSize == 0) || (blockIndex > Settings.Default.HeightToStartRealTimeSyncing))
                 {
                     string dirPath = "./Storage";
                     Directory.CreateDirectory(dirPath);
